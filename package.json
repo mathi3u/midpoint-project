@@ -1,0 +1,29 @@
+{
+  "name": "chatapp",
+  "version": "1.0.0",
+  "description": "This is a description",
+  "main": "app.js",
+  "dependencies": {
+    "jade": "^1.9.2",
+    "express": "^4.12.4",
+    "turf": "^2.0.2",
+    "socket.io": "^1.3.5"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "node app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mathi3u/midpoint-project.git"
+  },
+  "keywords": [
+    "none"
+  ],
+  "author": "mathi3u",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mathi3u/midpoint-project/issues"
+  },
+  "homepage": "https://github.com/mathi3u/midpoint-project#readme"
+}
