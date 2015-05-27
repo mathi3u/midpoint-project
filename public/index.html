@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Little race chat</title>
+    <style>
+                #chat{
+                        height:300px;
+                        width:800px;
+                        border: 1px black solid;
+                }
+                #contentWrap{
+                        display:none;
+                }
+                #chatWrap{
+                        border: 1px black solid;
+                        float:left;
+                }
+                .info{
+                        color:gray;
+                        font-style:italic;
+                }
+        </style>
+</head>
+
+<body>
+<div class="container" id="main">
+
+        <div id="nickWrap">
+                <p>Enter username:</p>
+                <p id="nickError"></p>
+                <form id="setNick">
+                        <input size="35" id="nickname"></input>
+                        <input type="submit"></input>
+                </form>
+        </div>
+
+        <!-- Create or join a room -->
+
+
+        <div id="contentWrap">
+                <div id="chatWrap">
+                        <div id="chat"></div>
+                        <form id="send-message">
+                                <div id="myNick"></div>
+                                <input size="35" id="message"></input>
+                                <input type="submit"></input>
+                        </form>
+                </div>
+                <div id="myMap"></div>
+                <b>Users:</b> <div id="users"></div>
+                <b>Midpoint:</b> <div id="midpoint"></div>
+        </div>
+</div>
+</body>
+
+<script type = "text/javascript" src = "//ajax.googleapis.com/ajax/libs/jquery/2.0.0/jquery.min.js" ></script>
+<script type = "text/javascript" src = "//api.tiles.mapbox.com/mapbox.js/plugins/turf/v2.0.0/turf.min.js" ></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  jQuery(function($){
+        var socket = io.connect();
+        var $nickForm = $('#setNick');
+        var $nickError = $('#nickError');
+        var $nickBox = $('#nickname');
+        var $users = $('#users');
+        var $messageForm = $('#send-message');
+        var $messageBox = $('#message');
+        var $nickLabel = $('#myNick');
+        var $chat = $('#chat');
+        var $midpoint = $('#midpoint');
+        var $location = null;
+        var $nickHash = {};
+        var $myNick = null;
+
+
+
+        navigator.geolocation.getCurrentPosition(setLocation);
+        function setLocation(l) {
+            $location = { "lat": l.coords.latitude, "lng": l.coords.longitude };
+        }
+
+        function generateRandomLocation(){
+                var lat = 48.8 + Math.random() * 0.1; //max 48.9
+                var lng = 2.2 + Math.random() * 0.2; //max 2.4
+                $location = { "lat" : lat, "lng": lng };
+        }
+
+        $nickForm.submit(function(e){
+                e.preventDefault();
+                $nick = $nickBox.val();
+                generateRandomLocation();
+                socket.emit('new user', { "nickname": $nick, "location": $location }, function(isNew){
+                        if (isNew){
+                                console.log($location);
+                                $myNick = $nick;
+                                $nickLabel.html("I am " + $nick);
+                                $('#nickWrap').hide();
+                                $('#contentWrap').show();
+                        }
+                        else {
+                                $nickError.html('That username is already taken, try again');
+                        }
+                });
+                $nickBox.val('');
+        });
+
+        $messageForm.submit(function(e){
+                e.preventDefault();
+                socket.emit('send message', $messageBox.val());
+                $messageBox.val('');
+        });
+
+        function publishNickList(){
+                var html = '';
+
+        console.log('INFO Publish Nicknames List');
+        console.log($nickHash);
+
+                for (var key in $nickHash){
+                        console.log($nickHash[key]);
+                        html += $nickHash[key].nickname + " (" + $nickHash[key].location.lat + "," + $nickHash[key].location.lng + ")<br/>";
+                }
+        $users.html(html);
+                setMidpoint();
+        }
+
+        function addNickname(key, n){
+                $nickHash[key] = n;
+        }
+
+        function removeNickname(key){
+                delete $nickHash[key];
+        }
+
+        function setMidpoint(){
+                var features = {
+                  "type": "FeatureCollection",
+                  "features": []
+                };
+
+                for (var key in $nickHash){
+                    features.features.push({
+                              "type": "Feature",
+                              "properties": {},
+                              "geometry": {
+                                "type": "Point",
+                                "coordinates": [$nickHash[key].location.lat, $nickHash[key].location.lng]
+                        }});
+                }
+                var centerPt = turf.center(features);
+                console.log(centerPt);
+                var cp = centerPt.geometry.coordinates;
+                $midpoint.html("(" + cp[0] + ", " + cp[1] + ")<br/>");
+        }
+
+        socket.on('welcome', function(welcome){
+                $chat.append('<span class="info">' + welcome.motd + "</span><br/>: ");
+        console.log('INFO Welcome motd = ' + welcome.motd);
+                $nickHash = welcome.nicknames;
+                publishNickList();
+        console.log(welcome.nicknames);
+        });
+
+
+        socket.on('new message', function(newMsg){
+                $chat.append("<b>" + newMsg.nick + "</b>: " + newMsg.msg + "<br/>");
+                console.log('INFO New message ' + newMsg.nick + ':' + newMsg.msg);
+        });
+
+        socket.on('user joined', function(nickname){
+                console.log('INFO user %s has joined', nickname.nickname);
+
+                if (nickname.nickname != $myNick){
+                $chat.append('<span class="info">' + nickname.nickname + ' has joined.</span><br/>');
+                        addNickname(nickname.nickname, nickname);
+                        publishNickList();
+                }
+        });
+
+    socket.on('user left', function(nickname){
+        console.log('INFO user %s has left', nickname.nickname );
+
+            $chat.append('<span class="info">' + nickname.nickname + ' has left.</span><br/>');
+        removeNickname(nickname.nickname);
+                publishNickList();
+    });
+  });
+</script>
+
+</html>
+
