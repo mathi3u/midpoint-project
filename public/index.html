@@ -86,13 +86,11 @@
 
 
 
-		L.mapbox.accessToken = 'pk.eyJ1IjoiZW1yb20iLCJhIjoiNzI1ZWEzYzA5MTg4Mzg3MzAzNDdjNjY4NmMzNTNjZDQifQ.uQP7LDyLGN1buDt6TXbrgg';
-		var $map = L.mapbox.map('map', 'mapbox.streets')
-		    .setView([48.8567, 2.3508], 13);
-
-
-		var markers = new L.FeatureGroup();
-		var centerPointArray = null;
+        L.mapbox.accessToken = 'pk.eyJ1IjoiZW1yb20iLCJhIjoiNzI1ZWEzYzA5MTg4Mzg3MzAzNDdjNjY4NmMzNTNjZDQifQ.uQP7LDyLGN1buDt6TXbrgg';
+        
+        var $map = L.mapbox.map('map', 'mapbox.streets').setView([48.8567, 2.3508], 13);
+        var markers = new L.FeatureGroup();
+        var centerPointArray = null;
 
 
         navigator.geolocation.getCurrentPosition(setLocation);
@@ -107,33 +105,32 @@
             $location = { "lat" : lat, "lng": lng };
         }
 
-		function clearMap(){
-				//clear map
-				$map.removeLayer(markers);
-				//markers = null;
-				markers = new L.FeatureGroup(); //overload memory?
-		}
-		
-		function redrawMap(){
-			clearMap();
-			
-			//draw center marker
-			markers.addLayer(L.marker([centerPointArray[0], centerPointArray[1]]));
-			
-			//draw user markers
-			var marker = null;
-			for (var key in $nickHash){
-				markers.addLayer(L.marker([ $nickHash[key].location.lat, $nickHash[key].location.lng ],
+        function clearMap(){
+	    //clear map
+            $map.removeLayer(markers);
+            //markers = null;
+            markers = new L.FeatureGroup(); //overload memory?
+        }
+
+        function redrawMap(){
+            clearMap();
+
+            //draw center marker
+            markers.addLayer(L.marker([centerPointArray[0], centerPointArray[1]]));
+
+            //draw user markers
+            var marker = null;
+            
+            for (var key in $nickHash){
+                markers.addLayer(L.marker([ $nickHash[key].location.lat, $nickHash[key].location.lng ],
                     {icon: L.mapbox.marker.icon({
-		                    'marker-size': 'large', 
-		                    'marker-symbol': 'bus', 
-		                    'marker-color': '#fa0'})}));
-			}
-			$map.addLayer(markers);
-			
-			$map.fitBounds(markers.getBounds());
-		    
-		}
+                        'marker-size': 'large', 
+                        'marker-symbol': 'bus', 
+                        'marker-color': '#fa0'})}));
+            }
+            $map.addLayer(markers);
+            $map.fitBounds(markers.getBounds());
+        }
 
         $nickForm.submit(function(e){
             e.preventDefault();
