@@ -5,6 +5,7 @@ var express = require('express'),
     io = require('socket.io')(http);
 
 var nicknames = {};
+var rooms = ['default-room'];
 
 app.use(express.static(path.join(__dirname, './public')));
 
@@ -18,27 +19,29 @@ io.on('connection', function (socket) {
             callback(false);
         }
         else{
-            callback(true);
             socket.nickname = n.nickname;
             socket.location = n.location;
             nicknames[socket.nickname] = { "nickname": socket.nickname, "location": socket.location };
             console.log('INFO User %s has been added to the list', socket.nickname);
+            callback(true);
+            socket.room = rooms[0];
+			socket.join(rooms[0]);
             io.to(socket.id).emit('welcome', { "motd": "Welcome " + socket.nickname + "! An apple a day keeps the doctor away", "nicknames": nicknames });
-            io.emit('user joined', nicknames[socket.nickname]);
+            io.sockets.in(socket.room).emit('user joined', nicknames[socket.nickname]);
             console.log(nicknames);
         }
     });
 
     socket.on('send message', function (message){
-       console.log('INFO User %s message "%s"', socket.nickname, message);
-       io.emit('new message', { id: socket.id, nick: socket.nickname, msg: message, date: Date.now() });
+        console.log('INFO User %s message "%s"', socket.nickname, message);
+        io.sockets.in(socket.room).emit('new message', { id: socket.id, nick: socket.nickname, msg: message, date: Date.now() });
     });
 
     socket.on('disconnect', function (){
         var user = nicknames[socket.nickname];
 
         if (socket.nickname && nicknames[socket.nickname]){
-            io.emit('user left', nicknames[socket.nickname]);
+            io.sockets.in(socket.room).emit('user left', nicknames[socket.nickname]);
             delete nicknames[socket.nickname];
         }
         console.log('User %s disconnected. Socket id %s', socket.nickname, socket.id);

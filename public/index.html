@@ -131,6 +131,8 @@
 			}
 			$map.addLayer(markers);
 			
+			$map.fitBounds(markers.getBounds());
+		    
 		}
 
         $nickForm.submit(function(e){
