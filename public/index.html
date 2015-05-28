@@ -4,22 +4,31 @@
     <title>Little race chat</title>
     <style>
         #chat{
-            height:300px;
-            width:800px;
+            height:100px;
+            width:100%;
             border: 1px black solid;
         }
+
         #contentWrap{
             display:none;
         }
+
         #chatWrap{
             border: 1px black solid;
-            float:left;
+			width: 400px;
         }
         .info{
             color:gray;
             font-style:italic;
-         }
+        }
+        #map {
+	        height: 250px;
+            width:100%;
+
+	    } 
     </style>
+	<script src='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.js'></script>
+	<link href='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.css' rel='stylesheet' />
 </head>
 
 <body>
@@ -44,11 +53,16 @@
                     <input type="submit"></input>
                 </form>
             </div>
-            <div id="myMap"></div>
             <b>Users:</b> <div id="users"></div>
             <b>Midpoint:</b> <div id="midpoint"></div>
+	<div id="map"></div>
+
+
         </div>
     </div>
+
+
+
 </body>
 
 <script type = "text/javascript" src = "//ajax.googleapis.com/ajax/libs/jquery/2.0.0/jquery.min.js" ></script>
@@ -70,6 +84,17 @@
         var $nickHash = {};
         var $myNick = null;
 
+
+
+		L.mapbox.accessToken = 'pk.eyJ1IjoiZW1yb20iLCJhIjoiNzI1ZWEzYzA5MTg4Mzg3MzAzNDdjNjY4NmMzNTNjZDQifQ.uQP7LDyLGN1buDt6TXbrgg';
+		var $map = L.mapbox.map('map', 'mapbox.streets')
+		    .setView([48.8567, 2.3508], 13);
+
+
+		var markers = new L.FeatureGroup();
+		var centerPointArray = null;
+
+
         navigator.geolocation.getCurrentPosition(setLocation);
         function setLocation(l) {
             $location = { "lat": l.coords.latitude, "lng": l.coords.longitude };
@@ -82,6 +107,32 @@
             $location = { "lat" : lat, "lng": lng };
         }
 
+		function clearMap(){
+				//clear map
+				$map.removeLayer(markers);
+				//markers = null;
+				markers = new L.FeatureGroup(); //overload memory?
+		}
+		
+		function redrawMap(){
+			clearMap();
+			
+			//draw center marker
+			markers.addLayer(L.marker([centerPointArray[0], centerPointArray[1]]));
+			
+			//draw user markers
+			var marker = null;
+			for (var key in $nickHash){
+				markers.addLayer(L.marker([ $nickHash[key].location.lat, $nickHash[key].location.lng ],
+                    {icon: L.mapbox.marker.icon({
+		                    'marker-size': 'large', 
+		                    'marker-symbol': 'bus', 
+		                    'marker-color': '#fa0'})}));
+			}
+			$map.addLayer(markers);
+			
+		}
+
         $nickForm.submit(function(e){
             e.preventDefault();
             $nick = $nickBox.val();
@@ -93,7 +144,9 @@
                     $nickLabel.html("I am " + $nick);
                     $('#nickWrap').hide();
                     $('#contentWrap').show();
-                }
+//                    $('#map').show();
+ 					$map.invalidateSize();
+               }
                 else {
                     $nickError.html('That username is already taken, try again');
                 }
@@ -119,6 +172,8 @@
             }
             $users.html(html);
             setMidpoint();
+			//wrong place to do this
+			redrawMap();
         }
 
         function addNickname(key, n){
@@ -146,9 +201,13 @@
                 });
             }
             var centerPt = turf.center(features);
-            console.log(centerPt);
+
+              console.log(centerPt);
             var cp = centerPt.geometry.coordinates;
             $midpoint.html("(" + cp[0] + ", " + cp[1] + ")<br/>");
+			centerPointArray = cp;
+
+
         }
 
         socket.on('welcome', function(welcome){
@@ -182,6 +241,12 @@
             publishNickList();
         });
     });
+
+
+
+
+
+	
 </script>
 </html>
 
