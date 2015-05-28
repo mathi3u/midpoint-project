@@ -4,10 +4,31 @@ var express = require('express'),
     http = require('http').Server(app),
     io = require('socket.io')(http);
 
+var foursquare = (require('node-foursquare-venues'))(
+    'U24XYADHDFEEPQYJ5UEXGRUFTDGQPZBTPQKR1WPZ43NYVPVF',
+    'HEVKYCMH04PXO2E0XTPYULFIBLI5XYGNGYFOXIXXVQA4GWZP'
+);
+ 
+var params = {
+    "ll": "40.7,-74"
+};
+
+
+foursquare.venues.search({"ll":"48.86923, 2.306294", "radius":1000, "category":"bar"}, function(error, v) {
+    if (!error) {
+        console.log(v.response.venues[0]);
+    }
+});
+
+
+
 var nicknames = {};
 var rooms = ['default-room'];
 
 app.use(express.static(path.join(__dirname, './public')));
+
+
+
 
 io.on('connection', function (socket) {
     console.log('INFO New connection. Socket id %s', socket.id);

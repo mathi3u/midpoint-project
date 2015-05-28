@@ -114,7 +114,12 @@
             clearMap();
 
             //draw center marker
-            markers.addLayer(L.marker([centerPointArray[0], centerPointArray[1]]));
+            markers.addLayer(L.marker([centerPointArray[0], centerPointArray[1]]),
+{icon: L.mapbox.marker.icon({
+                        'marker-size': 'large',
+                        'marker-symbol': 'circle-stroked',
+                        'marker-color': '#fa0'})}
+);
 
             //draw user markers
             var marker = null;
@@ -123,7 +128,7 @@
                 markers.addLayer(L.marker([ $nickHash[key].location.lat, $nickHash[key].location.lng ],
                     {icon: L.mapbox.marker.icon({
                         'marker-size': 'large', 
-                        'marker-symbol': 'bus', 
+                        'marker-symbol': 'pitch', 
                         'marker-color': '#fa0'})}));
             }
             $map.addLayer(markers);
@@ -199,10 +204,10 @@
             }
             var centerPt = turf.center(features);
 
-              console.log(centerPt);
+            console.log(centerPt);
             var cp = centerPt.geometry.coordinates;
             $midpoint.html("(" + cp[0] + ", " + cp[1] + ")<br/>");
-			centerPointArray = cp;
+            centerPointArray = cp;
 
 
         }
