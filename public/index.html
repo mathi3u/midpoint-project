@@ -173,9 +173,7 @@
                 html += $nickHash[key].nickname + " (" + $nickHash[key].location.lat + "," + $nickHash[key].location.lng + ")<br/>";
             }
             $users.html(html);
-            setMidpoint();
-			//wrong place to do this
-			redrawMap();
+            redrawMap(); // is it necessary here??
         }
 
         function addNickname(key, n){
@@ -187,6 +185,8 @@
         }
 
         function setMidpoint(){
+            centerPointArray = [-1, -1];
+            return;
             var features = {
                 "type": "FeatureCollection",
                 "features": []
@@ -208,8 +208,6 @@
             var cp = centerPt.geometry.coordinates;
             $midpoint.html("(" + cp[0] + ", " + cp[1] + ")<br/>");
             centerPointArray = cp;
-
-
         }
 
         socket.on('welcome', function(welcome){
@@ -242,6 +240,14 @@
             removeNickname(nickname.nickname);
             publishNickList();
         });
+
+
+        socket.on('midpoint', function(midpoint){
+            console.log(midpoint);
+            centerPointArray = midpoint["location"];
+            redrawMap();
+        });
+
     });
 
 
