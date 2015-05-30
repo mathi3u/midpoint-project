@@ -53,6 +53,8 @@
                     <input type="submit"></input>
                 </form>
             </div>
+            <div id="nearby"></div>
+
             <b>Users:</b> <div id="users"></div>
             <b>Midpoint:</b> <div id="midpoint"></div>
             <div id="map"></div>
@@ -67,7 +69,7 @@
 <script type = "text/javascript" src = "//api.tiles.mapbox.com/mapbox.js/plugins/turf/v2.0.0/turf.min.js" ></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    jQuery(function($){
+    jQuery(function($) {
         var socket = io.connect();
         var $nickForm = $('#setNick');
         var $nickError = $('#nickError');
@@ -78,11 +80,11 @@
         var $nickLabel = $('#myNick');
         var $chat = $('#chat');
         var $midpoint = $('#midpoint');
+        var $nearby = $('#nearby');
         var $location = null;
         var $nickHash = {};
         var $myNick = null;
-
-
+        var $nearbyHash = {};
 
         L.mapbox.accessToken = 'pk.eyJ1IjoiZW1yb20iLCJhIjoiNzI1ZWEzYzA5MTg4Mzg3MzAzNDdjNjY4NmMzNTNjZDQifQ.uQP7LDyLGN1buDt6TXbrgg';
         
@@ -96,51 +98,68 @@
             $location = { "lat": l.coords.latitude, "lng": l.coords.longitude };
         }
 
-        function generateRandomLocation(){
+        function generateRandomLocation() {
             var lat = 48.8 + Math.random() * 0.1; //max 48.9
             var lng = 2.2 + Math.random() * 0.2; //max 2.4
 
             $location = { "lat" : lat, "lng": lng };
         }
 
-        function clearMap(){
+        function clearMap() {
 	    //clear map
             $map.removeLayer(markers);
             //markers = null;
             markers = new L.FeatureGroup(); //overload memory?
         }
 
-        function redrawMap(){
+        function redrawMap() {
             clearMap();
 
             //draw center marker
             markers.addLayer(L.marker([centerPointArray[0], centerPointArray[1]]),
-{icon: L.mapbox.marker.icon({
-                        'marker-size': 'large',
-                        'marker-symbol': 'circle-stroked',
-                        'marker-color': '#fa0'})}
-);
+                { icon: L.mapbox.marker.icon({
+                    'marker-size': 'large',
+                    'marker-symbol': 'circle-stroked',
+                    'marker-color': '#fa0' })}
+            );
 
             //draw user markers
             var marker = null;
             
-            for (var key in $nickHash){
+            for (var key in $nickHash) {
                 markers.addLayer(L.marker([ $nickHash[key].location.lat, $nickHash[key].location.lng ],
-                    {icon: L.mapbox.marker.icon({
+                    { icon: L.mapbox.marker.icon({
                         'marker-size': 'large', 
                         'marker-symbol': 'pitch', 
-                        'marker-color': '#fa0'})}));
+                        'marker-color': '#fa0' })
+                    }));
             }
+
+            // draw nearby spots
+            for (var key in $nearbyHash) {
+	            console.log($nearbyHash[key]);
+	            marker = L.marker([ $nearbyHash[key].location.lat, $nearbyHash[key].location.lng ], { 
+		            icon: L.mapbox.marker.icon({
+                        'marker-size': 'large', 
+                        'marker-symbol': 'bar', 
+                        'marker-color': '#fa0' }),
+                    title: $nearbyHash[key].name,
+		            description: $nearbyHash[key].address
+                });
+	            marker.bindPopup("<b>" + $nearbyHash[key].name + "</b><br>" + $nearbyHash[key].address);
+                markers.addLayer(marker);
+            }
+
             $map.addLayer(markers);
             $map.fitBounds(markers.getBounds());
         }
 
-        $nickForm.submit(function(e){
+        $nickForm.submit(function(e) {
             e.preventDefault();
             $nick = $nickBox.val();
             generateRandomLocation();
             socket.emit('new user', { "nickname": $nick, "location": $location }, function(isNew){
-                if (isNew){
+                if (isNew) {
                     console.log($location);
                     $myNick = $nick;
                     $nickLabel.html("I am " + $nick);
@@ -156,19 +175,19 @@
             $nickBox.val('');
         });
 
-        $messageForm.submit(function(e){
+        $messageForm.submit(function(e) {
             e.preventDefault();
             socket.emit('send message', $messageBox.val());
             $messageBox.val('');
         });
 
-        function publishNickList(){
+        function publishNickList() {
             var html = '';
 
             console.log('INFO Publish Nicknames List');
             console.log($nickHash);
 
-            for (var key in $nickHash){
+            for (var key in $nickHash) {
                 console.log($nickHash[key]);
                 html += $nickHash[key].nickname + " (" + $nickHash[key].location.lat + "," + $nickHash[key].location.lng + ")<br/>";
             }
@@ -176,41 +195,15 @@
             redrawMap(); // is it necessary here??
         }
 
-        function addNickname(key, n){
+        function addNickname(key, n) {
             $nickHash[key] = n;
         }
 
-        function removeNickname(key){
+        function removeNickname(key) {
             delete $nickHash[key];
         }
 
-        function setMidpoint(){
-            centerPointArray = [-1, -1];
-            return;
-            var features = {
-                "type": "FeatureCollection",
-                "features": []
-            };
-
-            for (var key in $nickHash){
-                features.features.push({
-                    "type": "Feature",
-                    "properties": {},
-                    "geometry": {
-                         "type": "Point",
-                         "coordinates": [$nickHash[key].location.lat, $nickHash[key].location.lng]
-                    }
-                });
-            }
-            var centerPt = turf.center(features);
-
-            console.log(centerPt);
-            var cp = centerPt.geometry.coordinates;
-            $midpoint.html("(" + cp[0] + ", " + cp[1] + ")<br/>");
-            centerPointArray = cp;
-        }
-
-        socket.on('welcome', function(welcome){
+        socket.on('welcome', function(welcome) {
             $chat.append('<span class="info">' + welcome.motd + "</span><br/>: ");
             console.log('INFO Welcome motd = ' + welcome.motd);
             $nickHash = welcome.nicknames;
@@ -219,32 +212,41 @@
         });
 
 
-        socket.on('new message', function(newMsg){
+        socket.on('new message', function(newMsg) {
             $chat.append("<b>" + newMsg.nick + "</b>: " + newMsg.msg + "<br/>");
             console.log('INFO New message ' + newMsg.nick + ':' + newMsg.msg);
         });
 
-        socket.on('user joined', function(nickname){
+        socket.on('user joined', function(nickname) {
             console.log('INFO user %s has joined', nickname.nickname);
 
-            if (nickname.nickname != $myNick){
+            if (nickname.nickname != $myNick) {
                 $chat.append('<span class="info">' + nickname.nickname + ' has joined.</span><br/>');
                 addNickname(nickname.nickname, nickname);
                 publishNickList();
             }
         });
 
-        socket.on('user left', function(nickname){
+        socket.on('user left', function(nickname) {
             console.log('INFO user %s has left', nickname.nickname );
             $chat.append('<span class="info">' + nickname.nickname + ' has left.</span><br/>');
             removeNickname(nickname.nickname);
             publishNickList();
         });
 
-
-        socket.on('midpoint', function(midpoint){
-            console.log(midpoint);
+        socket.on('midpoint', function(midpoint) {
+            console.log('INFO Midpoint' + midpoint);
             centerPointArray = midpoint["location"];
+            $midpoint.html(centerPointArray[0] + ", " + centerPointArray[1]);
+
+            console.log('INFO Publish nearby spots');
+            $nearbyHash = midpoint["places"];
+            var html = '';
+            for (var i = 0; i < midpoint["places"].length; i++) {
+                $nearbyHash[midpoint["places"][i]["name"]] = midpoint["places"][i];
+                html += midpoint["places"][i]["name"] + "<br/>";
+            }
+            $nearby.html(html);
             redrawMap();
         });
 
