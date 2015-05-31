@@ -37,7 +37,8 @@
             <p>Enter username:</p>
             <p id="nickError"></p>
             <form id="setNick">
-                <input size="35" id="nickname"></input>
+                <label for="nickname">Nickname:</label><input size="35" id="nickname"></input>
+                <label for="nickname">Room:</label><input size="35" id="room_id"></input>
                 <input type="submit"></input>
             </form>
         </div>
@@ -49,6 +50,7 @@
                 <div id="chat"></div>
                 <form id="send-message">
                     <div id="myNick"></div>
+                    <div id="room"></div>
                     <input size="35" id="message"></input>
                     <input type="submit"></input>
                 </form>
@@ -74,6 +76,7 @@
         var $nickForm = $('#setNick');
         var $nickError = $('#nickError');
         var $nickBox = $('#nickname');
+        var $roomBox = $('#room_id');
         var $users = $('#users');
         var $messageForm = $('#send-message');
         var $messageBox = $('#message');
@@ -84,6 +87,7 @@
         var $location = null;
         var $nickHash = {};
         var $myNick = null;
+        var $room = null;
         var $nearbyHash = {};
 
         L.mapbox.accessToken = 'pk.eyJ1IjoiZW1yb20iLCJhIjoiNzI1ZWEzYzA5MTg4Mzg3MzAzNDdjNjY4NmMzNTNjZDQifQ.uQP7LDyLGN1buDt6TXbrgg';
@@ -94,6 +98,7 @@
 
 
         navigator.geolocation.getCurrentPosition(setLocation);
+
         function setLocation(l) {
             $location = { "lat": l.coords.latitude, "lng": l.coords.longitude };
         }
@@ -157,12 +162,13 @@
         $nickForm.submit(function(e) {
             e.preventDefault();
             $nick = $nickBox.val();
+            $room = $roomBox.val() || null;
             generateRandomLocation();
-            socket.emit('new user', { "nickname": $nick, "location": $location }, function(isNew){
+            socket.emit('new user', { "nickname": $nick, "location": $location , "room": $room }, function(isNew){
                 if (isNew) {
                     console.log($location);
                     $myNick = $nick;
-                    $nickLabel.html("I am " + $nick);
+                    $nickLabel.html("I am " + $nick + " in room " + $room);
                     $('#nickWrap').hide();
                     $('#contentWrap').show();
 //                    $('#map').show();
@@ -210,7 +216,6 @@
             publishNickList();
             console.log(welcome.nicknames);
         });
-
 
         socket.on('new message', function(newMsg) {
             $chat.append("<b>" + newMsg.nick + "</b>: " + newMsg.msg + "<br/>");

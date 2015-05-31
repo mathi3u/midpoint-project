@@ -13,13 +13,13 @@ var centerPoint; // must be attributed to each room
 
 app.use(express.static(path.join(__dirname, './public')));
 
-function getNearbyPlaces(lat, lng) {
+function getNearbyPlaces(latlng) {
     var googleConfig = {
         "apiKey": "AIzaSyA_kca427rr8VLDbX6DSRyquoeQOhravfY",
         "outputFormat": "json"
     };
     var parameters = {
-        location: [lat, lng],
+        location: latlng,
         radius: 5000,
         types: ["bar"]
     };
@@ -46,52 +46,64 @@ function getNearbyPlaces(lat, lng) {
         places_results.push(place);
     }
 
-    console.log("Nearby")
-    console.log(url);
-    console.log(places_results);
+//    console.log("Nearby");
+//    console.log(url);
+//    console.log(places_results);
 
     return places_results;
 }
 
-function setCenterPoint(){
+function setCenterPoint(room){
     var features = {
         "type": "FeatureCollection",
         "features": []
     };
-    for (var key in nicknames){
+    for (var key in rooms[room].nicknames){
         features.features.push({
             "type": "Feature",
             "properties": {},
             "geometry": {
                 "type": "Point",
-                "coordinates": [nicknames[key].location.lat, nicknames[key].location.lng]
+                "coordinates": [ rooms[room].nicknames[key].location.lat, rooms[room].nicknames[key].location.lng ]
             }
         });
     }
-    centerPoint = turf.center(features)["geometry"]["coordinates"];
+    rooms[room].centerPoint = turf.center(features)["geometry"]["coordinates"];
 }
 
 function createRoom() {
-	var key = Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 10);
-	
-	console.log("INFO Create room " + key);
-	
-	rooms[key] = { "key" : key, "nicknames" : {} };
-	
-	return key;
+    var key = Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 3); // to be updated
+    console.log("INFO Create room " + key);
+    rooms[key] = { "key" : key, "nicknames" : {}, "centerPoint": null };
+    return key;
 }
 
-function joinRoom(socket, r) {
-//	if (!r) {
-    if (!Object.keys(rooms).length) { // this only creates one room
-        r = createRoom();
+function addUserToRoom(socket) {
+    console.log("INFO User %s has joined room %s", socket.nickname, socket.room);
+    socket.join(socket.room);
+    rooms[socket.room].nicknames[socket.nickname] = {
+        "nickname": socket.nickname,
+        "location": socket.location
+    };
+    setCenterPoint(socket.room);
+}
+
+function removeUserFromRoom(socket) {
+    console.log('User %s disconnected. Socket id %s', socket.nickname, socket.id);
+    delete rooms[socket.room].nicknames[socket.nickname];
+    console.log(rooms[socket.room].nicknames);
+    socket.leave(socket.room);
+    if (!Object.keys(rooms[socket.room].nicknames).length) {
+        delete rooms[socket.room];
     }
     else {
-        r = Object.keys(rooms)[0];
+        setCenterPoint(socket.room);
     }
-	console.log("INFO Joining room " + r);
-    socket.room = rooms[r];
-    socket.join(rooms[r]);
+    console.log(rooms);
+}
+
+function removeUser(nickname) {
+    delete nicknames[nickname];
 }
 
 io.on('connection', function (socket) {
@@ -101,44 +113,56 @@ io.on('connection', function (socket) {
         console.log('INFO New user %s', n.nickname);
         if (n.nickname in nicknames) {
             console.log('WARN user %s already exists', n.nickname);
-            callback(false);
-        }
-        else {
+            callback(false, null, "nickname " + n.nickname + "already exists");
+        } else if (n.room && !(n.room in rooms)) {
+            console.log('WARN there is an issue with room %s that user %s is trying to access', n.room, n.nickname);
+            callback(false, n.room, "nickname issue with room " + n.room);
+	    } else {
             socket.nickname = n.nickname;
-            socket.location = n.location;
-            
-            joinRoom(socket);
-            
-            nicknames[socket.nickname] = { "nickname": socket.nickname, "location": socket.location };
-            console.log('INFO User %s has been added to the list', socket.nickname);
-            callback(true);
-            io.to(socket.id).emit('welcome', { "motd": "Welcome " + socket.nickname + "! An apple a day keeps the doctor away", "nicknames": nicknames });
-            io.sockets.in(socket.room).emit('user joined', nicknames[socket.nickname]);
-            setCenterPoint();
-            io.sockets.in(socket.room).emit('midpoint', { "location" : centerPoint, "places":  getNearbyPlaces(centerPoint[0], centerPoint[1])});
+            socket.location = n.location;            
+            socket.room = n.room ? n.room : createRoom();
+
+            addUserToRoom(socket);
+
+            callback(true, socket.room, null);
+            io.to(socket.id).emit('welcome', {
+                "room": socket.room,
+                "motd": "Welcome " + socket.nickname + "! An apple a day keeps the doctor away",
+                "nicknames": rooms[socket.room].nicknames
+            });
+            io.sockets.in(socket.room).emit('user joined', {
+                "nickname": socket.nickname,
+                "location": socket.location
+            });
+            io.sockets.in(socket.room).emit('midpoint', { 
+                "location": rooms[socket.room].centerPoint,
+                "places": getNearbyPlaces(rooms[socket.room].centerPoint)
+            });
         }
     });
 
     socket.on('send message', function (message) {
         console.log('INFO User %s message "%s"', socket.nickname, message);
-        io.sockets.in(socket.room).emit('new message', { id: socket.id, nick: socket.nickname, msg: message, date: Date.now() });
-    
-
-        io.sockets.in(socket.room).emit('resp nearby', getNearbyPlaces("lat", "lng"));
+        io.sockets.in(socket.room).emit('new message', { 
+            id: socket.id,
+            nick: socket.nickname,
+            msg: message, date: Date.now()
+        });
     });
 
     socket.on('disconnect', function () {
-        var user = nicknames[socket.nickname];
-
-        if (socket.nickname && nicknames[socket.nickname]) {
-            io.sockets.in(socket.room).emit('user left', nicknames[socket.nickname]);
-            delete nicknames[socket.nickname];
-            setCenterPoint();
-            console.log(centerPoint);
-            io.sockets.in(socket.room).emit('midpoint', { "location" : centerPoint, "places":  getNearbyPlaces(centerPoint[0], centerPoint[1])});
+	    console.log('INFO User %s disconnecting', socket.nickname);
+        if (socket.nickname) {
+		    io.sockets.in(socket.room).emit('user left', rooms[socket.room].nicknames[socket.nickname]);
+            removeUserFromRoom(socket);
+			if (rooms[socket.room]) {
+		        io.sockets.in(socket.room).emit('midpoint', {
+		            "location": rooms[socket.room].centerPoint,
+		            "places": getNearbyPlaces(rooms[socket.room].centerPoint)
+                });
+		    }
+		    removeUser(socket.nickname);
         }
-        console.log('User %s disconnected. Socket id %s', socket.nickname, socket.id);
-        console.log(nicknames);
     });
 });
 
