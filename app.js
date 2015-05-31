@@ -7,7 +7,8 @@ var express = require('express'),
     request = require("sync-request");
 
 var nicknames = {};
-var rooms = ['default-room'];
+//var rooms = ['default-room'];
+var rooms = [];
 var centerPoint; // must be attributed to each room
 
 app.use(express.static(path.join(__dirname, './public')));
@@ -31,9 +32,6 @@ function getNearbyPlaces(lat, lng) {
         + "&rankby=" + "distance" 
         + "&types=" + parameters["types"]
         + "&key=" + googleConfig.apiKey;
-
-
-
 
  	var res = JSON.parse(request('GET', url, ["json"]).getBody('utf8'))["results"];
     var place;
@@ -73,6 +71,29 @@ function setCenterPoint(){
     centerPoint = turf.center(features)["geometry"]["coordinates"];
 }
 
+function createRoom() {
+	var key = Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 10);
+	
+	console.log("INFO Create room " + key);
+	
+	rooms[key] = { "key" : key, "nicknames" : {} };
+	
+	return key;
+}
+
+function joinRoom(socket, r) {
+//	if (!r) {
+    if (!Object.keys(rooms).length) { // this only creates one room
+        r = createRoom();
+    }
+    else {
+        r = Object.keys(rooms)[0];
+    }
+	console.log("INFO Joining room " + r);
+    socket.room = rooms[r];
+    socket.join(rooms[r]);
+}
+
 io.on('connection', function (socket) {
     console.log('INFO New connection. Socket id %s', socket.id);
 
@@ -85,11 +106,12 @@ io.on('connection', function (socket) {
         else {
             socket.nickname = n.nickname;
             socket.location = n.location;
+            
+            joinRoom(socket);
+            
             nicknames[socket.nickname] = { "nickname": socket.nickname, "location": socket.location };
             console.log('INFO User %s has been added to the list', socket.nickname);
             callback(true);
-            socket.room = rooms[0];
-			socket.join(rooms[0]);
             io.to(socket.id).emit('welcome', { "motd": "Welcome " + socket.nickname + "! An apple a day keeps the doctor away", "nicknames": nicknames });
             io.sockets.in(socket.room).emit('user joined', nicknames[socket.nickname]);
             setCenterPoint();
