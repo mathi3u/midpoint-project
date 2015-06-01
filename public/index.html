@@ -31,6 +31,8 @@
             width: 300px;
         } 
     </style>
+	<!-- Latest compiled and minified CSS -->
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
 	<script src='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.js'></script>
 	<link href='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.css' rel='stylesheet' />
 </head>
@@ -40,18 +42,18 @@
         <div id="nickWrap">
             <p id="nickError"></p>
             <form id="setNick">
-                <label for="nickname">Nickname:</label><input size="35" id="nickname"></input><br />
+                <label for="nickname">Nickname:</label><input size="35" id="nickname"></input> 
                 <label for="nickname">Room:</label><input size="35" id="room_id"></input><br />
+	            <p>User location:</p>
+	            <div id="userLocationMap"></div>
                 <label for="user_location_lat">User Lat:</label><input size="35" id="user_location_lat" disabled></input>
                 <label for="user_location_lng">User Lng:</label><input size="35" id="user_location_lng" disabled></input><br />
+	            <p>Venue location:</p>
+	            <div id="venueLocationMap"></div>
                 <label for="venue_location_lat">Venue Lat:</label><input size="35" id="venue_location_lat" disabled></input>
                 <label for="venue_location_lng">Venue Lng:</label><input size="35" id="venue_location_lng" disabled></input><br />
                 <input type="submit"></input>
             </form>
-            <p>User location:</p>
-            <div id="userLocationMap"></div>
-            <p>Venue location:</p>
-            <div id="venueLocationMap"></div>
         </div>
 
     <!-- Create or join a room -->
