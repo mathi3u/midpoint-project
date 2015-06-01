@@ -35,6 +35,8 @@
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
 	<script src='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.js'></script>
 	<link href='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.css' rel='stylesheet' />
+	<link href='https://cdnjs.cloudflare.com/ajax/libs/jquery-timepicker/1.7.0/jquery.timepicker.min.css' rel='stylesheet' />
+	
 </head>
 
 <body>
@@ -52,6 +54,7 @@
 	            <div id="venueLocationMap"></div>
                 <label for="venue_location_lat">Venue Lat:</label><input size="35" id="venue_location_lat" disabled></input>
                 <label for="venue_location_lng">Venue Lng:</label><input size="35" id="venue_location_lng" disabled></input><br />
+                <label for="select_meet_time">Select meeting time:</label><input id="select_meet_time"></input>
                 <input type="submit"></input>
             </form>
         </div>
@@ -72,6 +75,7 @@
 
             <b>Users:</b> <div id="users"></div>
             <b>Venue area:</b> <div id="midpoint"></div>
+            <b>Meeting time:</b> <div id="meet_time"></div>
             <div id="map"></div>
         </div>
     </div>
@@ -82,6 +86,7 @@
 
 <script type = "text/javascript" src = "//ajax.googleapis.com/ajax/libs/jquery/2.0.0/jquery.min.js" ></script>
 <script type = "text/javascript" src = "//api.tiles.mapbox.com/mapbox.js/plugins/turf/v2.0.0/turf.min.js" ></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/jquery-timepicker/1.7.0/jquery.timepicker.min.js'></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
     jQuery(function($) {
@@ -103,6 +108,9 @@
         var $myNick = null;
         var $room = null;
         var $nearbyHash = {};
+        var $selectMeetingTimeBox = $('#select_meet_time');
+
+        $selectMeetingTimeBox.timepicker();
 
         var $userLocationLatBox = $('#user_location_lat');
         var $userLocationLngBox = $('#user_location_lng');
@@ -142,7 +150,7 @@
         navigator.geolocation.getCurrentPosition(setUserLocationGeolocation);
 
         function setUserLocationGeolocation(l) {
-            // /!\ does not work??? /!\
+            // /!\ does not work??? marker not printed /!\
             setUserLocation({
                 lng: l.coords.longitude,
                 lat: l.coords.latitude
@@ -161,13 +169,10 @@
             setVenueLocation(e.latlng);
         }
 
-
-
-
         function clearMap() {
 	    //clear map
             $map.removeLayer(markers);
-            markers = new L.FeatureGroup(); //overload memory?
+            markers = new L.FeatureGroup(); //overload memory? how to free() ?
         }
 
         function redrawMap() {
