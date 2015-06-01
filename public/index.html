@@ -25,7 +25,11 @@
 	        height: 250px;
             width:100%;
 
-	    } 
+	}
+        #userLocationMap {
+            height: 300px;
+            width: 300px;
+        } 
     </style>
 	<script src='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.js'></script>
 	<link href='https://api.tiles.mapbox.com/mapbox.js/v2.1.9/mapbox.css' rel='stylesheet' />
@@ -34,13 +38,16 @@
 <body>
     <div class="container" id="main">
         <div id="nickWrap">
-            <p>Enter username:</p>
             <p id="nickError"></p>
             <form id="setNick">
-                <label for="nickname">Nickname:</label><input size="35" id="nickname"></input>
-                <label for="nickname">Room:</label><input size="35" id="room_id"></input>
+                <label for="nickname">Nickname:</label><input size="35" id="nickname"></input><br />
+                <label for="nickname">Room:</label><input size="35" id="room_id"></input><br />
+                <label for="user_location_lat">Lat:</label><input size="35" id="user_location_lat" disabled></input><br />
+                <label for="user_location_lng">Lng:</label><input size="35" id="user_location_lng" disabled></input><br />
+                <input type="hidden" id="user_location"></input>
                 <input type="submit"></input>
             </form>
+            <div id="userLocationMap"></div>
         </div>
 
     <!-- Create or join a room -->
@@ -90,17 +97,44 @@
         var $room = null;
         var $nearbyHash = {};
 
+        var $userLocationLatBox = $('#user_location_lat');
+        var $userLocationLngBox = $('#user_location_lng');
+
+
+
         L.mapbox.accessToken = 'pk.eyJ1IjoiZW1yb20iLCJhIjoiNzI1ZWEzYzA5MTg4Mzg3MzAzNDdjNjY4NmMzNTNjZDQifQ.uQP7LDyLGN1buDt6TXbrgg';
         
         var $map = L.mapbox.map('map', 'mapbox.streets').setView([48.8567, 2.3508], 13);
+        var $userLocationMap = L.mapbox.map('userLocationMap', 'mapbox.streets').setView([48.8567, 2.3508], 13);
+
+
+	var userMarker = new L.FeatureGroup();
+	$userLocationMap.on('click', selectUserLocation);
+
         var markers = new L.FeatureGroup();
         var centerPointArray = null;
 
+        function setUserLocation(latlng) {
+            console.log('should add map marker');
+            $userLocationMap.removeLayer(userMarker);
+            userMarker = new L.marker(latlng).addTo($userLocationMap);
+            $userLocationLngBox.val(latlng.lng);
+            $userLocationLatBox.val(latlng.lat);
+            $location = latlng;
+        }
 
-        navigator.geolocation.getCurrentPosition(setLocation);
+        function selectUserLocation(e) {
+            setUserLocation(e.latlng);
+        }
 
-        function setLocation(l) {
-            $location = { "lat": l.coords.latitude, "lng": l.coords.longitude };
+        navigator.geolocation.getCurrentPosition(setUserLocationGeolocation);
+
+        function setUserLocationGeolocation(l) {
+            // /!\ does not work??? /!\
+            setUserLocation({
+                lng: l.coords.longitude,
+                lat: l.coords.latitude
+            });
         }
 
         function generateRandomLocation() {
@@ -113,7 +147,6 @@
         function clearMap() {
 	    //clear map
             $map.removeLayer(markers);
-            //markers = null;
             markers = new L.FeatureGroup(); //overload memory?
         }
 
@@ -159,23 +192,28 @@
             $map.fitBounds(markers.getBounds());
         }
 
+
+        // No validation done
         $nickForm.submit(function(e) {
             e.preventDefault();
             $nick = $nickBox.val();
             $room = $roomBox.val() || null;
-            generateRandomLocation();
-            socket.emit('new user', { "nickname": $nick, "location": $location , "room": $room }, function(isNew){
+//            generateRandomLocation();
+            socket.emit('new user', { 
+                nickname: $nick,
+                location: $location, 
+                room: $room
+            }, function(isNew, roomJoined, error) { // need feedback on room joined
                 if (isNew) {
-                    console.log($location);
                     $myNick = $nick;
+                    $room = roomJoined;
                     $nickLabel.html("I am " + $nick + " in room " + $room);
                     $('#nickWrap').hide();
                     $('#contentWrap').show();
-//                    $('#map').show();
- 					$map.invalidateSize();
-               }
+                    $map.invalidateSize();
+                }
                 else {
-                    $nickError.html('That username is already taken, try again');
+                    $nickError.html(error);
                 }
             });
             $nickBox.val('');
