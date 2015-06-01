@@ -7,9 +7,7 @@ var express = require('express'),
     request = require("sync-request");
 
 var nicknames = {};
-//var rooms = ['default-room'];
 var rooms = [];
-var centerPoint; // must be attributed to each room
 
 app.use(express.static(path.join(__dirname, './public')));
 
@@ -28,7 +26,7 @@ function getNearbyPlaces(latlng) {
 
     var url = "https://maps.googleapis.com/maps/api/place/nearbysearch/"
         + googleConfig.outputFormat + "?"
-        + "location=" + parameters["location"][0] + "," + parameters["location"][1]
+        + "location=" + parameters.location.lat + "," + parameters.location.lng
         + "&rankby=" + "distance" 
         + "&types=" + parameters["types"]
         + "&key=" + googleConfig.apiKey;
@@ -45,11 +43,6 @@ function getNearbyPlaces(latlng) {
         };
         places_results.push(place);
     }
-
-//    console.log("Nearby");
-//    console.log(url);
-//    console.log(places_results);
-
     return places_results;
 }
 
@@ -68,13 +61,18 @@ function setCenterPoint(room){
             }
         });
     }
-    rooms[room].centerPoint = turf.center(features)["geometry"]["coordinates"];
+    rooms[room].venueLatlng = turf.center(features)["geometry"]["coordinates"];
 }
 
-function createRoom() {
+function createRoom(venueLocation) {
     var key = Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 3); // to be updated
     console.log("INFO Create room " + key);
-    rooms[key] = { "key" : key, "nicknames" : {}, "centerPoint": null };
+    rooms[key] = { 
+        key: key,
+        nicknames: {},
+        venueLatlng: (venueLocation ? venueLocation : null),
+        fixedVenueLocation: !!venueLocation // ugly operator, to be clarified later
+    };
     return key;
 }
 
@@ -85,7 +83,9 @@ function addUserToRoom(socket) {
         "nickname": socket.nickname,
         "location": socket.location
     };
-    setCenterPoint(socket.room);
+    if (!rooms[socket.room].fixedVenueLocation) {
+        setCenterPoint(socket.room);
+    }
 }
 
 function removeUserFromRoom(socket) {
@@ -97,9 +97,11 @@ function removeUserFromRoom(socket) {
         delete rooms[socket.room];
     }
     else {
-        setCenterPoint(socket.room);
+        if (!rooms[socket.room].fixedVenueLocation) {
+            setCenterPoint(socket.room);
+        }
     }
-    console.log(rooms);
+//    console.log(rooms);
 }
 
 function removeUser(nickname) {
@@ -117,10 +119,10 @@ io.on('connection', function (socket) {
         } else if (n.room && !(n.room in rooms)) {
             console.log('WARN there is an issue with room %s that user %s is trying to access', n.room, n.nickname);
             callback(false, n.room, "nickname issue with room " + n.room);
-	    } else {
+	} else {
             socket.nickname = n.nickname;
-            socket.location = n.location;            
-            socket.room = n.room ? n.room : createRoom();
+            socket.location = n.location;
+            socket.room = n.room ? n.room : createRoom(n.venueLocation);
 
             addUserToRoom(socket);
 
@@ -134,9 +136,9 @@ io.on('connection', function (socket) {
                 "nickname": socket.nickname,
                 "location": socket.location
             });
-            io.sockets.in(socket.room).emit('midpoint', { 
-                "location": rooms[socket.room].centerPoint,
-                "places": getNearbyPlaces(rooms[socket.room].centerPoint)
+            io.sockets.in(socket.room).emit('venue area', { 
+                "location": rooms[socket.room].venueLatlng,
+                "places": getNearbyPlaces(rooms[socket.room].venueLatlng)
             });
         }
     });
@@ -151,17 +153,17 @@ io.on('connection', function (socket) {
     });
 
     socket.on('disconnect', function () {
-	    console.log('INFO User %s disconnecting', socket.nickname);
+        console.log('INFO User %s disconnecting', socket.nickname);
         if (socket.nickname) {
-		    io.sockets.in(socket.room).emit('user left', rooms[socket.room].nicknames[socket.nickname]);
+	    io.sockets.in(socket.room).emit('user left', rooms[socket.room].nicknames[socket.nickname]);
             removeUserFromRoom(socket);
-			if (rooms[socket.room]) {
-		        io.sockets.in(socket.room).emit('midpoint', {
-		            "location": rooms[socket.room].centerPoint,
-		            "places": getNearbyPlaces(rooms[socket.room].centerPoint)
+            if (rooms[socket.room]) {
+                io.sockets.in(socket.room).emit('venue area', {
+                    "location": rooms[socket.room].venueLatlng,
+                    "places": getNearbyPlaces(rooms[socket.room].venueLatlng)
                 });
-		    }
-		    removeUser(socket.nickname);
+            }
+            removeUser(socket.nickname);
         }
     });
 });

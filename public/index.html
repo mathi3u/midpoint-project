@@ -26,7 +26,7 @@
             width:100%;
 
 	}
-        #userLocationMap {
+        #userLocationMap, #venueLocationMap {
             height: 300px;
             width: 300px;
         } 
@@ -42,12 +42,16 @@
             <form id="setNick">
                 <label for="nickname">Nickname:</label><input size="35" id="nickname"></input><br />
                 <label for="nickname">Room:</label><input size="35" id="room_id"></input><br />
-                <label for="user_location_lat">Lat:</label><input size="35" id="user_location_lat" disabled></input><br />
-                <label for="user_location_lng">Lng:</label><input size="35" id="user_location_lng" disabled></input><br />
-                <input type="hidden" id="user_location"></input>
+                <label for="user_location_lat">User Lat:</label><input size="35" id="user_location_lat" disabled></input>
+                <label for="user_location_lng">User Lng:</label><input size="35" id="user_location_lng" disabled></input><br />
+                <label for="venue_location_lat">Venue Lat:</label><input size="35" id="venue_location_lat" disabled></input>
+                <label for="venue_location_lng">Venue Lng:</label><input size="35" id="venue_location_lng" disabled></input><br />
                 <input type="submit"></input>
             </form>
+            <p>User location:</p>
             <div id="userLocationMap"></div>
+            <p>Venue location:</p>
+            <div id="venueLocationMap"></div>
         </div>
 
     <!-- Create or join a room -->
@@ -65,7 +69,7 @@
             <div id="nearby"></div>
 
             <b>Users:</b> <div id="users"></div>
-            <b>Midpoint:</b> <div id="midpoint"></div>
+            <b>Venue area:</b> <div id="midpoint"></div>
             <div id="map"></div>
         </div>
     </div>
@@ -92,6 +96,7 @@
         var $midpoint = $('#midpoint');
         var $nearby = $('#nearby');
         var $location = null;
+        var $venueLocation = null;
         var $nickHash = {};
         var $myNick = null;
         var $room = null;
@@ -100,22 +105,27 @@
         var $userLocationLatBox = $('#user_location_lat');
         var $userLocationLngBox = $('#user_location_lng');
 
+        var $venueLocationLatBox = $('#venue_location_lat');
+        var $venueLocationLngBox = $('#venue_location_lng');
 
 
         L.mapbox.accessToken = 'pk.eyJ1IjoiZW1yb20iLCJhIjoiNzI1ZWEzYzA5MTg4Mzg3MzAzNDdjNjY4NmMzNTNjZDQifQ.uQP7LDyLGN1buDt6TXbrgg';
         
         var $map = L.mapbox.map('map', 'mapbox.streets').setView([48.8567, 2.3508], 13);
         var $userLocationMap = L.mapbox.map('userLocationMap', 'mapbox.streets').setView([48.8567, 2.3508], 13);
-
+        var $venueLocationMap = L.mapbox.map('venueLocationMap', 'mapbox.streets').setView([48.8567, 2.3508], 13);
 
 	var userMarker = new L.FeatureGroup();
 	$userLocationMap.on('click', selectUserLocation);
+
+        var venueMarker = new L.FeatureGroup();
+        $venueLocationMap.on('click', selectVenueLocation);
+
 
         var markers = new L.FeatureGroup();
         var centerPointArray = null;
 
         function setUserLocation(latlng) {
-            console.log('should add map marker');
             $userLocationMap.removeLayer(userMarker);
             userMarker = new L.marker(latlng).addTo($userLocationMap);
             $userLocationLngBox.val(latlng.lng);
@@ -137,12 +147,20 @@
             });
         }
 
-        function generateRandomLocation() {
-            var lat = 48.8 + Math.random() * 0.1; //max 48.9
-            var lng = 2.2 + Math.random() * 0.2; //max 2.4
-
-            $location = { "lat" : lat, "lng": lng };
+        function setVenueLocation(latlng) {
+            $venueLocationMap.removeLayer(venueMarker);
+            venueMarker = new L.marker(latlng).addTo($venueLocationMap);
+            $venueLocationLngBox.val(latlng.lng);
+            $venueLocationLatBox.val(latlng.lat);
+            $venueLocation = latlng;
         }
+
+        function selectVenueLocation(e) {
+            setVenueLocation(e.latlng);
+        }
+
+
+
 
         function clearMap() {
 	    //clear map
@@ -154,12 +172,15 @@
             clearMap();
 
             //draw center marker
-            markers.addLayer(L.marker([centerPointArray[0], centerPointArray[1]]),
-                { icon: L.mapbox.marker.icon({
-                    'marker-size': 'large',
-                    'marker-symbol': 'circle-stroked',
-                    'marker-color': '#fa0' })}
-            );
+            if (centerPointArray) {
+                markers.addLayer(L.marker([centerPointArray.lat, centerPointArray.lng]),
+                    { icon: L.mapbox.marker.icon({
+                        'marker-size': 'large',
+                        'marker-symbol': 'circle-stroked',
+                        'marker-color': '#fa0' })
+                    }
+                );
+            }
 
             //draw user markers
             var marker = null;
@@ -198,12 +219,16 @@
             e.preventDefault();
             $nick = $nickBox.val();
             $room = $roomBox.val() || null;
-//            generateRandomLocation();
+            $fixedVenue = $venueLocationLngBox.val() && $venueLocationLngBox.val();
+
             socket.emit('new user', { 
                 nickname: $nick,
                 location: $location, 
-                room: $room
-            }, function(isNew, roomJoined, error) { // need feedback on room joined
+                room: $room,
+                venueLocation: $fixedVenue ? { 
+                    lat: $venueLocationLatBox.val(),
+                    lng: $venueLocationLngBox.val() } : null
+            }, function(isNew, roomJoined, error) {
                 if (isNew) {
                     $myNick = $nick;
                     $room = roomJoined;
@@ -277,17 +302,18 @@
             publishNickList();
         });
 
-        socket.on('midpoint', function(midpoint) {
-            console.log('INFO Midpoint' + midpoint);
-            centerPointArray = midpoint["location"];
-            $midpoint.html(centerPointArray[0] + ", " + centerPointArray[1]);
+        socket.on('venue area', function(midpoint) {
+            console.log('INFO Venue area/midpoint');
+            console.log(midpoint);
+            centerPointArray = midpoint.location;
+            $midpoint.html(centerPointArray.lat + ", " + centerPointArray.lng);
 
             console.log('INFO Publish nearby spots');
-            $nearbyHash = midpoint["places"];
+            $nearbyHash = midpoint.places;
             var html = '';
-            for (var i = 0; i < midpoint["places"].length; i++) {
-                $nearbyHash[midpoint["places"][i]["name"]] = midpoint["places"][i];
-                html += midpoint["places"][i]["name"] + "<br/>";
+            for (var i = 0; i < midpoint.places.length; i++) {
+                $nearbyHash[midpoint.places[i].name] = midpoint.places[i];
+                html += midpoint.places[i].name + "<br/>";
             }
             $nearby.html(html);
             redrawMap();
