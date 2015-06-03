@@ -9,7 +9,7 @@
             border: 1px black solid;
         }
 
-        #contentWrap{
+        #contentWrap, #nickWrap{
             display:none;
         }
 
@@ -30,6 +30,11 @@
             height: 300px;
             width: 300px;
         } 
+        .choice {
+            background-color: gray;
+            color: white;
+            border: 1px black solid;
+      }
     </style>
 	<!-- Latest compiled and minified CSS -->
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
@@ -41,20 +46,24 @@
 
 <body>
     <div class="container" id="main">
+        <div id="choiceWrap">
+            <span id="chooseCreate" class="choice">Create</span> or <span id="chooseJoin" class="choice">Join</span>
+        </div>
+
         <div id="nickWrap">
             <p id="nickError"></p>
             <form id="setNick">
                 <label for="nickname">Nickname:</label><input size="35" id="nickname"></input> 
-                <label for="nickname">Room:</label><input size="35" id="room_id"></input><br />
+                <label for="room_id" id="room_id_label">Room:</label><input size="35" id="room_id"></input><br />
 	            <p>User location:</p>
 	            <div id="userLocationMap"></div>
                 <label for="user_location_lat">User Lat:</label><input size="35" id="user_location_lat" disabled></input>
                 <label for="user_location_lng">User Lng:</label><input size="35" id="user_location_lng" disabled></input><br />
-	            <p>Venue location:</p>
+	            <p id="venue_location_title">Venue location:</p>
 	            <div id="venueLocationMap"></div>
-                <label for="venue_location_lat">Venue Lat:</label><input size="35" id="venue_location_lat" disabled></input>
-                <label for="venue_location_lng">Venue Lng:</label><input size="35" id="venue_location_lng" disabled></input><br />
-                <label for="select_meet_time">Select meeting time:</label><input id="select_meet_time"></input>
+                <label for="venue_location_lat" id="venue_location_lat_label">Venue Lat:</label><input size="35" id="venue_location_lat" disabled></input>
+                <label for="venue_location_lng" id="venue_location_lng_label">Venue Lng:</label><input size="35" id="venue_location_lng" disabled></input><br />
+                <label for="select_meet_time" id="select_meet_time_label">Select meeting time:</label><input id="select_meet_time"></input>
                 <input type="submit"></input>
             </form>
         </div>
@@ -90,7 +99,14 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
     jQuery(function($) {
+
+
         var socket = io.connect();
+
+        var $chooseCreateButton = $('#chooseCreate');
+        var $chooseJoinButton = $('#chooseJoin');
+
+
         var $nickForm = $('#setNick');
         var $nickError = $('#nickError');
         var $nickBox = $('#nickname');
@@ -134,6 +150,35 @@
 
         var markers = new L.FeatureGroup();
         var centerPointArray = null;
+
+
+        $chooseCreateButton.click(function() {
+            $('#nickWrap').show();
+            $('#choiceWrap').hide();
+
+            $roomBox.hide();
+            $('#room_id_label').hide();
+
+            $userLocationMap.invalidateSize();
+            $venueLocationMap.invalidateSize();
+            
+        });
+        $chooseJoinButton.click(function() {
+            $('#nickWrap').show();
+            $('#choiceWrap').hide();
+            $('#venueLocationMap').hide();
+            $('#venue_location_title').hide();
+            $('#venue_location_lat_label').hide();
+            $('#venue_location_lng_label').hide();
+            $('#select_meet_time_label').hide();
+            $('#select_meet_time').hide();
+            $venueLocationLatBox.hide();
+            $venueLocationLngBox.hide();
+
+            $userLocationMap.invalidateSize();
+        });
+
+
 
         function setUserLocation(latlng) {
             $userLocationMap.removeLayer(userMarker);

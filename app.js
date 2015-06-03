@@ -11,6 +11,24 @@ var rooms = [];
 
 app.use(express.static(path.join(__dirname, './public')));
 
+
+// viewed at http://localhost:8080
+app.get('/', function(req, res) {
+    res.sendFile(path.join(__dirname + '/public' + '/index.html'));
+});
+
+app.get('/join', function(req, res) {
+    res.sendFile(path.join(__dirname + '/public' + '/index.html'));
+});
+
+app.get('/create', function(req, res) {
+    res.sendFile(path.join(__dirname + '/public' + '/index.html'));
+});
+
+
+
+
+
 function getNearbyPlaces(latlng) {
     var googleConfig = {
         "apiKey": "AIzaSyA_kca427rr8VLDbX6DSRyquoeQOhravfY",
