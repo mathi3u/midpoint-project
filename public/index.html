@@ -141,10 +141,11 @@
         var $userLocationMap = L.mapbox.map('userLocationMap', 'mapbox.streets').setView([48.8567, 2.3508], 13);
         var $venueLocationMap = L.mapbox.map('venueLocationMap', 'mapbox.streets').setView([48.8567, 2.3508], 13);
 
-	var userMarker = new L.FeatureGroup();
+		var userMarkers = new L.FeatureGroup();
+		var userMarker = new L.FeatureGroup();
 	$userLocationMap.on('click', selectUserLocation);
 
-        var venueMarker = new L.FeatureGroup();
+    var venueMarker = new L.FeatureGroup();
         $venueLocationMap.on('click', selectVenueLocation);
 
 
@@ -181,11 +182,17 @@
 
 
         function setUserLocation(latlng) {
-            $userLocationMap.removeLayer(userMarker);
-            userMarker = new L.marker(latlng).addTo($userLocationMap);
+	
+	        $userLocationMap.removeLayer(userMarkers);
+            userMarkers = new L.FeatureGroup(); //overload memory? how to free() ?    
+            userMarkers.addLayer(L.marker(latlng));
+            $userLocationMap.addLayer(userMarkers);
+            $userLocationMap.fitBounds(userMarkers.getBounds());
+
             $userLocationLngBox.val(latlng.lng);
             $userLocationLatBox.val(latlng.lat);
             $location = latlng;
+
         }
 
         function selectUserLocation(e) {
@@ -195,7 +202,6 @@
         navigator.geolocation.getCurrentPosition(setUserLocationGeolocation);
 
         function setUserLocationGeolocation(l) {
-            // /!\ does not work??? marker not printed /!\
             setUserLocation({
                 lng: l.coords.longitude,
                 lat: l.coords.latitude
@@ -248,7 +254,7 @@
 
             // draw nearby spots
             for (var key in $nearbyHash) {
-	            console.log($nearbyHash[key]);
+//	            console.log($nearbyHash[key]);
 	            marker = L.marker([ $nearbyHash[key].location.lat, $nearbyHash[key].location.lng ], { 
 		            icon: L.mapbox.marker.icon({
                         'marker-size': 'large', 
@@ -272,6 +278,7 @@
             $nick = $nickBox.val();
             $room = $roomBox.val() || null;
             $fixedVenue = $venueLocationLngBox.val() && $venueLocationLngBox.val();
+            meetingTime = $selectMeetingTimeBox;
 
             socket.emit('new user', { 
                 nickname: $nick,
@@ -279,7 +286,8 @@
                 room: $room,
                 venueLocation: $fixedVenue ? { 
                     lat: $venueLocationLatBox.val(),
-                    lng: $venueLocationLngBox.val() } : null
+                    lng: $venueLocationLngBox.val() } : null,
+                time: meetingTime
             }, function(isNew, roomJoined, error) {
                 if (isNew) {
                     $myNick = $nick;
@@ -306,10 +314,10 @@
             var html = '';
 
             console.log('INFO Publish Nicknames List');
-            console.log($nickHash);
+//            console.log($nickHash);
 
             for (var key in $nickHash) {
-                console.log($nickHash[key]);
+//                console.log($nickHash[key]);
                 html += $nickHash[key].nickname + " (" + $nickHash[key].location.lat + "," + $nickHash[key].location.lng + ")<br/>";
             }
             $users.html(html);
@@ -329,7 +337,7 @@
             console.log('INFO Welcome motd = ' + welcome.motd);
             $nickHash = welcome.nicknames;
             publishNickList();
-            console.log(welcome.nicknames);
+//            console.log(welcome.nicknames);
         });
 
         socket.on('new message', function(newMsg) {
@@ -354,7 +362,7 @@
             publishNickList();
         });
 
-        socket.on('venue area', function(midpoint) {
+        socket.on('venue update', function(midpoint) {
             console.log('INFO Venue area/midpoint');
             console.log(midpoint);
             centerPointArray = midpoint.location;
@@ -368,6 +376,7 @@
                 html += midpoint.places[i].name + "<br/>";
             }
             $nearby.html(html);
+            $('meet_time').val(midpoint.meetingTime);
             redrawMap();
         });
 
